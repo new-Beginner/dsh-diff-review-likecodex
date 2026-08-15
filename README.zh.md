@@ -60,6 +60,11 @@ dsh plugin --profile web add ${PWD}
 dsh plugin --profile web add github:new-Beginner/dsh-diff-review-likecodex
 ```
 
+## 更新插件
+
+```sh
+dsh plugin --profile web update dsh-file-review
+```
 ## 卸载插件
 
 ```sh
