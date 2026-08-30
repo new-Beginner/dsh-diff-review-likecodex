@@ -8,6 +8,7 @@
 ![Web profile](https://img.shields.io/badge/profile-Web-0ea5e9)
 [![npm version](https://img.shields.io/npm/v/dsh-file-review.svg)](https://www.npmjs.com/package/dsh-file-review)
 [![npm downloads](https://img.shields.io/npm/dm/dsh-file-review.svg)](https://www.npmjs.com/package/dsh-file-review)
+[![E2E（macOS + Windows）](https://img.shields.io/github/actions/workflow/status/new-Beginner/dsh-diff-review-likecodex/publish.yml?label=E2E%20%28macOS%20%2B%20Windows%29&logo=github)](https://github.com/new-Beginner/dsh-diff-review-likecodex/actions/workflows/publish.yml)
 [![GitHub repository](https://img.shields.io/badge/GitHub-Repository-181717?logo=github)](https://github.com/new-Beginner/dsh-diff-review-likecodex)
 [![MIT License](https://img.shields.io/badge/license-MIT-22c55e)](LICENSE)
 
