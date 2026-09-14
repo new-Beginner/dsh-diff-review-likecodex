@@ -23,7 +23,8 @@
     "cordis.patch.yml",
     "README.md",
     "README.zh.md",
-    "assets/preview.png"
+    "assets/preview.png",
+    "assets/compact-bar.png"
   ],
   "type": "module",
   "main": "lib/index.js",

@@ -29,7 +29,7 @@ This project is an independently maintained fork derived from [left0ver](https:/
 1. **Codex-like review entry (Interaction Scheme A)**:
    - Removed the intrusive "Review" button from the session header bar.
    - Retained and enhanced the native right sidebar review tabs and message-tail review shortcuts.
-   - Added a compact, content-adaptive review dock above the composer while a turn is running; it smoothly fades out once the turn settles or stops.
+   - Added a compact, content-adaptive review dock above the composer while a turn is running; it smoothly fades out once the turn settles or stops. This compact floating bar and entry design can also be merged directly into the `bettersider` (`dsh-better-sidebar`) project.
 2. **Turn-scoped deliverable diffs & history isolation**:
    - Introduced a turn picker in the review page to load all recorded file edits strictly within the selected conversation turn, preventing multi-turn edit confusion.
    - Merged absolute and relative workspace path aliases without double counting; disambiguated same-named files in different directories by prepending parent folders.
@@ -49,7 +49,13 @@ This project is an independently maintained fork derived from [left0ver](https:/
 
 ## Preview
 
+### Review panel and changed files card
+
 ![preview](./assets/preview.png)
+
+### Running compact floating review bar
+
+![compact review bar](./assets/compact-bar.png)
 
 ## Features
 
@@ -66,7 +72,7 @@ This project is an independently maintained fork derived from [left0ver](https:/
 
 ## Compatibility
 
-See the badge above for the currently supported DSH CLI version. `dsh-better-sidebar` is an optional peer dependency (`>=0.19.1 <0.20`), not a required browser injection; the native sidebar remains the fallback.
+See the badge above for the currently supported DSH CLI version. `dsh-better-sidebar` is an optional peer dependency (`>=0.19.1 <0.20`), not a required browser injection; the native sidebar remains the fallback. Furthermore, the running compact floating bar and quick review entry architecture are cleanly decoupled and can be merged directly into the `bettersider` (`dsh-better-sidebar`) project for deeper integrated sidebar workflow synergy.
 
 ## Install from local source
 

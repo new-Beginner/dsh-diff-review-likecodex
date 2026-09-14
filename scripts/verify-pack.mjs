@@ -17,12 +17,17 @@ const runtimeFiles = new Set([
 
 function parsePackOutput(output) {
   for (
-    let offset = output.lastIndexOf('[');
+    let offset = Math.max(output.lastIndexOf('['), output.lastIndexOf('{'));
     offset >= 0;
-    offset = output.lastIndexOf('[', offset - 1)
+    offset = Math.max(output.lastIndexOf('[', offset - 1), output.lastIndexOf('{', offset - 1))
   ) {
     try {
-      return JSON.parse(output.slice(offset))
+      const parsed = JSON.parse(output.slice(offset))
+      if (Array.isArray(parsed)) return parsed[0]
+      if (parsed && typeof parsed === 'object') {
+        const values = Object.values(parsed)
+        if (values.length > 0 && values[0]?.files) return values[0]
+      }
     } catch {
       // npm lifecycle output can precede the JSON payload; keep looking for its outer array.
     }
@@ -34,13 +39,15 @@ try {
   const result = spawnSync('npm', ['pack', '--dry-run', '--ignore-scripts', '--json'], {
     cwd: root,
     encoding: 'utf8',
+    shell: process.platform === 'win32',
     env: { ...process.env, HUSKY: '0', npm_config_cache: cache },
   })
   if (result.status !== 0) throw new Error(result.stderr || result.stdout)
-  const [pack] = parsePackOutput(result.stdout)
+  const pack = parsePackOutput(result.stdout)
   const files = new Set(pack.files.map((entry) => entry.path))
   for (const required of [
     'assets/preview.png',
+    'assets/compact-bar.png',
     'cordis.patch.yml',
     'lib/index.js',
     'lib/client.js',
