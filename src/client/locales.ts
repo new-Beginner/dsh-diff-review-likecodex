@@ -1,14 +1,14 @@
-/** `file-review` namespace dictionaries. */
+/** `diff-review-likecodex` namespace dictionaries. */
 
 /** Dictionary namespace owned by this plugin. */
-export const NS = 'file-review'
+export const NS = 'diff-review-likecodex'
 
 /** English dictionary (the key-set source of truth). */
 export const en = {
-  'settings.title': 'File review',
+  'settings.title': 'Diff Review Likecodex',
   'settings.description': 'See every file your agent changes clearly.',
-  'settings.star.title': 'Star on GitHub',
-  'settings.star.aria': 'Star dsh-file-review on GitHub (opens in a new tab)',
+  'settings.star.title': 'Upstream project · MIT',
+  'settings.star.aria': 'View upstream dsh-file-review on GitHub (opens in a new tab)',
   'settings.expand': 'Expand',
   'settings.collapse': 'Collapse',
   'settings.readOnly': 'The settings file is read-only.',
@@ -28,6 +28,7 @@ export const en = {
   'produced.open': 'Open {name}',
   'produced.review': 'Review {name}',
   'produced.reviewAll': 'Review all produced files',
+  'produced.reviewLive': 'Review changes in this turn',
   'produced.undo': 'Undo',
   'produced.redo': 'Reapply',
   'produced.undoing': 'Undoing…',
@@ -45,6 +46,13 @@ export const en = {
   'produced.noticeClose': 'Dismiss notification',
   'produced.noticeDismiss': 'Close',
   'review.title': 'Review',
+  'review.openSession': 'Review conversation changes',
+  'review.turnPicker': 'Review turn',
+  'review.turnOption': 'Turn {turn} · {count} files',
+  'review.latestTurn': 'Latest changed turn',
+  'review.legacyReadOnly': 'Legacy review record (read-only)',
+  'review.noSessionChanges': 'No recorded changes in this conversation yet.',
+  'review.allFiles': 'All files in this turn',
   'review.fileOne': '1 file',
   'review.files': '{count} files',
   'review.openInEditor': 'Open in editor',
@@ -84,10 +92,10 @@ export type DeliverablesKey = keyof typeof en
 
 /** Simplified Chinese dictionary. */
 export const zh: Record<DeliverablesKey, string> = {
-  'settings.title': '文件审查',
+  'settings.title': 'Diff Review Likecodex',
   'settings.description': '让你看清agent改动的每一个文件',
-  'settings.star.title': '去 GitHub 点 Star',
-  'settings.star.aria': '在 GitHub 为 dsh-file-review 点 Star（在新标签页打开）',
+  'settings.star.title': '上游项目 · MIT',
+  'settings.star.aria': '在 GitHub 查看上游 dsh-file-review（在新标签页打开）',
   'settings.expand': '展开',
   'settings.collapse': '收起',
   'settings.readOnly': '配置文件为只读。',
@@ -107,6 +115,7 @@ export const zh: Record<DeliverablesKey, string> = {
   'produced.open': '打开 {name}',
   'produced.review': '审查 {name}',
   'produced.reviewAll': '审查所有产出文件',
+  'produced.reviewLive': '审查本轮改动',
   'produced.undo': '撤销',
   'produced.redo': '重新应用',
   'produced.undoing': '正在撤销…',
@@ -124,6 +133,13 @@ export const zh: Record<DeliverablesKey, string> = {
   'produced.noticeClose': '关闭提示',
   'produced.noticeDismiss': '关闭',
   'review.title': '审查',
+  'review.openSession': '审查会话改动',
+  'review.turnPicker': '审查轮次',
+  'review.turnOption': '第 {turn} 轮 · {count} 个文件',
+  'review.latestTurn': '最近有改动的一轮',
+  'review.legacyReadOnly': '旧版审查记录（只读）',
+  'review.noSessionChanges': '当前会话还没有已记录的改动。',
+  'review.allFiles': '本轮全部文件',
   'review.fileOne': '1 个文件',
   'review.files': '{count} 个文件',
   'review.openInEditor': '在编辑器中打开',

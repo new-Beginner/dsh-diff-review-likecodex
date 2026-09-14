@@ -96,8 +96,8 @@ describe('file review smoke', () => {
       ['deleted.txt', 'delete'],
     ])
 
-    const service = ctx.get('fileReview') as FileReviewService | undefined
-    if (service === undefined) throw new Error('fileReview service was not registered')
+    const service = ctx.get('diffReviewLikecodex') as FileReviewService | undefined
+    if (service === undefined) throw new Error('diffReviewLikecodex service was not registered')
     const request: FileReviewRequest = {
       action: 'undo',
       files: marker.files.map((file) => ({ path: file.path, diffs: file.diffs })),

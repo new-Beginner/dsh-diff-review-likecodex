@@ -1,6 +1,6 @@
 // ProducedFiles: compact turn-tail summary with native review-tab navigation.
 
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import type { TurnTailOwnerProps } from '@deepseek-ai/dsh-client-ui-chat/client'
 import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
 import type { FileReviewRequest, FileReviewResult } from '../change-types.ts'
@@ -8,16 +8,19 @@ import type { NS } from './locales.ts'
 import { ReviewStats } from './ReviewContent.tsx'
 import { ReviewResultToast, unavailableChanges, useReviewActions } from './review-actions.tsx'
 import type { ReviewTarget } from './FileReviewTab.tsx'
-import { basename, type ProducedFileReview } from './turn-deliverables.ts'
+import {
+  basename,
+  reviewsForClosing,
+  REVIEW_TURN_DATA,
+  type ProducedFileReview,
+} from './turn-deliverables.ts'
 import { summarizeDiffs, type UnifiedDiffStats } from './UnifiedDiff.tsx'
 import css from './ProducedFiles.module.css'
-
-/** Keep the turn-tail card compact; the review tab still receives every file. */
-const SHOWN_LIMIT = 6
 
 /** Matched file reviews plus the opener and locale supplied by the turn-tail slot. */
 export type ProducedFilesProps = Pick<TurnTailOwnerProps, 'openFile'> & {
   matched: readonly ProducedFileReview[]
+  projectRoot?: string | undefined
   openReview: (target: ReviewTarget) => void
   inspectChanges?: (request: FileReviewRequest) => Promise<FileReviewResult>
   applyChanges?: (request: FileReviewRequest) => Promise<FileReviewResult>
@@ -50,7 +53,8 @@ function addStats(left: UnifiedDiffStats, right: UnifiedDiffStats): UnifiedDiffS
 
 /** Render one turn's produced files and open their native review tab. */
 export function ProducedFiles({
-  matched: reviews,
+  matched,
+  projectRoot,
   openFile,
   openReview,
   inspectChanges = unavailableChanges,
@@ -59,8 +63,27 @@ export function ProducedFiles({
   seq = 0,
   t,
 }: ProducedFilesProps) {
-  const [isPreviewExpanded, setIsPreviewExpanded] = useState(false)
   const turnNumber = turn?.turn ?? 0
+  const data = turn?.data?.get(REVIEW_TURN_DATA)
+  const reviews = useMemo(
+    () =>
+      reviewsForClosing(
+        data ?? { produced: matched.map((review) => ({ ...review, seq: 0 })) },
+        seq,
+        projectRoot,
+      ),
+    [data, matched, seq, projectRoot],
+  )
+  const repeatedNames = useMemo(() => {
+    const seen = new Set<string>()
+    const repeated = new Set<string>()
+    for (const review of reviews) {
+      const name = basename(review.path)
+      if (seen.has(name)) repeated.add(name)
+      seen.add(name)
+    }
+    return repeated
+  }, [reviews])
 
   const reviewsWithStats = useMemo(
     () =>
@@ -78,8 +101,6 @@ export function ProducedFiles({
       }),
     [reviewsWithStats],
   )
-  const shown = isPreviewExpanded ? reviewsWithStats : reviewsWithStats.slice(0, SHOWN_LIMIT)
-  const hidden = reviewsWithStats.length - shown.length
   const actions = useReviewActions({ reviews, inspectChanges, applyChanges, t })
 
   return (
@@ -135,8 +156,13 @@ export function ProducedFiles({
             {t('review.title')}
           </button>
         </header>
+        {reviews.some((review) => review.readOnly) && (
+          <div className={css.reviewReadOnly} role="note">
+            {t('review.legacyReadOnly')}
+          </div>
+        )}
         <div className={css.fileList}>
-          {shown.map(({ review, stats }) => (
+          {reviewsWithStats.map(({ review, stats }) => (
             <button
               key={review.path}
               type="button"
@@ -147,7 +173,10 @@ export function ProducedFiles({
                 openReview({ turn: turnNumber, closingSeq: seq, focusPaths: [review.path] })
               }
             >
-              <span className={css.fileName}>{basename(review.path)}</span>
+              <FileIcon />
+              <span className={css.fileName}>
+                {repeatedNames.has(basename(review.path)) ? review.path : basename(review.path)}
+              </span>
               <ReviewStats
                 stats={stats}
                 label={t('review.stats', {
@@ -157,18 +186,6 @@ export function ProducedFiles({
               />
             </button>
           ))}
-          {hidden > 0 && (
-            <button
-              type="button"
-              className={css.moreFiles}
-              aria-expanded={isPreviewExpanded}
-              onClick={() => {
-                setIsPreviewExpanded(true)
-              }}
-            >
-              {hidden === 1 ? t('produced.moreOne') : t('produced.more', { count: String(hidden) })}
-            </button>
-          )}
         </div>
       </section>
 

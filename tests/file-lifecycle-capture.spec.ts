@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Context } from '@deepseek-ai/cordis'
@@ -8,6 +8,61 @@ import Tools, { defineTool } from '@deepseek-ai/dsh-tools'
 import { afterEach, describe, expect, it } from 'vitest'
 import { apply, inject } from '../src/index.ts'
 import { markerFromContent } from '../src/ptc-marker.ts'
+import { transformFile } from '../src/file-review-service.ts'
+
+/** Exercise capture through actual tool dispatch without permission-dependent assertions. */
+async function captureMutation(
+  root: string,
+  callPaths: readonly string[],
+  resultPaths: readonly string[],
+  mutate: () => Promise<void>,
+) {
+  const callId = 'capture-regression'
+  ctx = new Context()
+  await ctx.plugin(SystemPrompt, { persona: '' })
+  await ctx.plugin(Tools, {})
+  await ctx.plugin({ apply, inject }).await()
+  ctx.tools.register(
+    defineTool({
+      name: 'fixture_capture_regression',
+      description: 'capture a fixture mutation',
+      parameters: {},
+      output: {
+        schema: { type: 'string' },
+        render: (_args, value) => [{ type: 'text', text: value }],
+      },
+      presentCall: () => ({
+        card: 'diff',
+        title: 'Capture regression',
+        locations: callPaths.map((path) => ({ path })),
+        diffs: callPaths.map((path) => ({ path, oldText: 'placeholder', newText: 'presentation' })),
+      }),
+      presentResult: () => ({
+        card: 'diff',
+        diffs: resultPaths.map((path) => ({
+          path,
+          oldText: 'placeholder',
+          newText: 'presentation',
+        })),
+      }),
+      async execute() {
+        await mutate()
+        return 'done'
+      },
+    }),
+  )
+  const result = await ctx.tools.execute({
+    callId,
+    name: 'fixture_capture_regression',
+    arguments: {},
+    agent: agent(root, callId),
+    signal: new AbortController().signal,
+  })
+  expect(result.isError).toBe(false)
+  const marker = markerFromContent(result.content, { rootCallId: callId, subCallId: callId })
+  expect(marker).not.toBeNull()
+  return marker!.files
+}
 
 let ctx: Context | undefined
 const roots: string[] = []
@@ -41,6 +96,176 @@ function agent(cwd: string, callId: string, step = 1): Agent {
 }
 
 describe('tool lifecycle capture', () => {
+  it('deduplicates duplicate root aliases between absolute capture and relative presentResult paths', async () => {
+    const root = await workspace()
+    await mkdir(join(root, 'src'))
+    const filename = join(root, 'src', 'index.ts')
+    await writeFile(filename, 'before\n')
+    const files = await captureMutation(
+      root,
+      [filename, './src/index.ts', 'src/../src/index.ts'],
+      ['src/index.ts', filename, './src/./index.ts'],
+      () => writeFile(filename, 'after\n'),
+    )
+    expect(files).toEqual([
+      {
+        path: 'src/index.ts',
+        source: 'result',
+        diffs: [
+          {
+            path: 'src/index.ts',
+            oldText: 'before\n',
+            newText: 'after\n',
+            oldStart: 1,
+            newStart: 1,
+          },
+        ],
+      },
+    ])
+    expect(transformFile('after\n', files[0]!, 'undo')).toBe('before\n')
+  })
+
+  it('keeps identical basenames in separate directories and canonicalizes uncaptured presentation aliases', async () => {
+    const root = await workspace()
+    await Promise.all(['a', 'b'].map((directory) => mkdir(join(root, directory))))
+    await Promise.all(
+      ['a', 'b'].map((directory) =>
+        writeFile(join(root, directory, 'index.ts'), `${directory}-old`),
+      ),
+    )
+    const files = await captureMutation(
+      root,
+      [join(root, 'a/index.ts'), './a/index.ts', 'b/index.ts'],
+      [
+        'a/index.ts',
+        join(root, 'b/index.ts'),
+        './missing.ts',
+        './missing.ts',
+        join(root, 'missing.ts'),
+      ],
+      async () => {
+        await writeFile(join(root, 'a/index.ts'), 'a-new')
+        await writeFile(join(root, 'b/index.ts'), 'b-new')
+      },
+    )
+    expect(files.map((file) => file.path)).toEqual(['a/index.ts', 'b/index.ts', 'missing.ts'])
+    expect(files[0]?.diffs[0]?.oldText).toBe('a-old')
+    expect(files[1]?.diffs[0]?.oldText).toBe('b-old')
+    // Preserve intentional duplicates within one presentation; only aliases are redundant.
+    expect(files[2]?.diffs).toEqual([
+      { path: 'missing.ts', oldText: 'placeholder', newText: 'presentation' },
+      { path: 'missing.ts', oldText: 'placeholder', newText: 'presentation' },
+    ])
+  })
+
+  it('does not capture outside-root files when normalizing aliases', async () => {
+    const root = await workspace()
+    const outside = join(await workspace(), 'outside.ts')
+    await writeFile(join(root, 'inside.ts'), 'inside-old')
+    await writeFile(outside, 'outside-old')
+    const files = await captureMutation(
+      root,
+      ['inside.ts', outside],
+      ['inside.ts', outside],
+      async () => {
+        await writeFile(join(root, 'inside.ts'), 'inside-new')
+        await writeFile(outside, 'outside-new')
+      },
+    )
+    expect(files[0]?.diffs[0]?.oldText).toBe('inside-old')
+    // Retain the tool presentation, but never replace it with a filesystem snapshot outside cwd.
+    expect(files[1]?.diffs[0]?.oldText).toBe('placeholder')
+    expect(files[1]?.diffs[0]?.oldStart).toBeUndefined()
+  })
+
+  it('captures exactly three real context lines above and below an isolated edit with CRLF', async () => {
+    const root = await workspace()
+    const filename = join(root, 'context.txt')
+    const lines = Array.from({ length: 13 }, (_, index) => `line-${index + 1}`)
+    const before = lines.join('\r\n') + '\r\n'
+    const changed = [...lines]
+    changed[6] = 'changed'
+    const after = changed.join('\r\n') + '\r\n'
+    await writeFile(filename, before)
+    const files = await captureMutation(root, [filename], ['context.txt'], () =>
+      writeFile(filename, after),
+    )
+    expect(files).toEqual([
+      {
+        path: 'context.txt',
+        source: 'result',
+        diffs: [
+          {
+            path: 'context.txt',
+            oldText: lines.slice(3, 10).join('\r\n') + '\r\n',
+            newText: changed.slice(3, 10).join('\r\n') + '\r\n',
+            oldStart: 4,
+            newStart: 4,
+          },
+        ],
+      },
+    ])
+    expect(transformFile(after, files[0]!, 'undo')).toBe(before)
+    expect(transformFile(before, files[0]!, 'redo')).toBe(after)
+  })
+
+  it.each([3, 5, 6, 7])(
+    'avoids duplicate or overlapping three-line context with %i unchanged lines between edits',
+    async (gap) => {
+      const root = await workspace()
+      const filename = join(root, 'overlap.txt')
+      const lines = Array.from({ length: 24 }, (_, index) => `line-${index + 1}`)
+      const before = lines.join('\n') + '\n'
+      const changed = [...lines]
+      changed[4] = 'first-change'
+      changed[5 + gap] = 'second-change'
+      const after = changed.join('\n') + '\n'
+      await writeFile(filename, before)
+      const files = await captureMutation(root, ['overlap.txt'], [filename], () =>
+        writeFile(filename, after),
+      )
+      const file = files[0]!
+      expect(file.diffs).toHaveLength(gap <= 6 ? 1 : 2)
+      for (const diff of file.diffs) {
+        const oldCount = diff.oldText!.split('\n').length - 1
+        const newCount = diff.newText.split('\n').length - 1
+        expect(diff.oldText).toBe(
+          lines.slice(diff.oldStart! - 1, diff.oldStart! - 1 + oldCount).join('\n') + '\n',
+        )
+        expect(diff.newText).toBe(
+          changed.slice(diff.newStart! - 1, diff.newStart! - 1 + newCount).join('\n') + '\n',
+        )
+      }
+      expect(transformFile(after, file, 'undo')).toBe(before)
+      expect(transformFile(before, file, 'redo')).toBe(after)
+    },
+  )
+
+  it.each([
+    ['head insert', 'a\nb\nc\nd\ne\n', 'head\na\nb\nc\nd\ne\n'],
+    ['head delete', 'head\na\nb\nc\nd\ne\n', 'a\nb\nc\nd\ne\n'],
+    ['tail insert', 'a\nb\nc\nd\ne\n', 'a\nb\nc\nd\ne\ntail\n'],
+    ['tail delete', 'a\nb\nc\nd\ne\ntail\n', 'a\nb\nc\nd\ne\n'],
+    ['empty insert', '', 'first\r\n'],
+    ['empty delete', 'last\r\n', ''],
+    ['unterminated CRLF tail', 'a\r\nb\r\nc', 'a\r\nb\r\nc\r\ntail'],
+    ['remove final newline', 'a\r\nb\r\nc\r\n', 'a\r\nb\r\nc'],
+  ])('preserves exact coordinates and undo content for %s', async (_name, before, after) => {
+    const root = await workspace()
+    const filename = join(root, 'edge.txt')
+    await writeFile(filename, before)
+    const files = await captureMutation(root, [filename], ['edge.txt'], () =>
+      writeFile(filename, after),
+    )
+    const file = files[0]!
+    expect(file.diffs).toHaveLength(1)
+    const diff = file.diffs[0]!
+    expect(diff.oldStart).toBeGreaterThanOrEqual(1)
+    expect(diff.newStart).toBeGreaterThanOrEqual(1)
+    expect(transformFile(after, file, 'undo')).toBe(before)
+    expect(transformFile(before, file, 'redo')).toBe(after)
+  })
+
   // 验证根据工具执行前后的磁盘状态，记录新建文件的内容、权限和明确的创建标记。
   it('persists an explicit create diff from the execution before/after state', async () => {
     const root = await workspace()
@@ -168,8 +393,8 @@ describe('tool lifecycle capture', () => {
     ])
   })
 
-  // 验证插入和删除操作保留准确行号，差异块之间最多直接保留五行未修改内容。
-  it('captures insert/delete coordinates and keeps at most five unchanged lines inline', async () => {
+  // 验证三行上下文保留插入删除坐标，并由补丁库合并相邻上下文，避免重叠重复。
+  it('captures insert/delete coordinates with three real context lines and merged neighboring hunks', async () => {
     const root = await workspace()
     const filename = join(root, 'edited.txt')
     const before =
@@ -273,28 +498,24 @@ describe('tool lifecycle capture', () => {
         diffs: [
           {
             path: 'edited.txt',
-            oldText: '',
-            newText: 'inserted\n',
+            oldText: 'repeat\nlead-1\nlead-2\n',
+            newText: 'inserted\nrepeat\nlead-1\nlead-2\n',
             oldStart: 1,
             newStart: 1,
           },
           {
             path: 'edited.txt',
-            oldText: 'repeat\nfive-1\nfive-2\nfive-3\nfive-4\nfive-5\nsecond-old\n',
-            newText: 'changed\nfive-1\nfive-2\nfive-3\nfive-4\nfive-5\nsecond-new\n',
-            oldStart: 8,
-            newStart: 9,
-          },
-          {
-            path: 'edited.txt',
-            oldText: 'distant-old\n',
-            newText: '',
-            oldStart: 21,
-            newStart: 22,
+            oldText: before.split('\n').slice(4).join('\n'),
+            newText: after.split('\n').slice(5).join('\n'),
+            oldStart: 5,
+            newStart: 6,
           },
         ],
       },
     ])
+    const file = markerFromContent(result.content, { rootCallId: callId, subCallId: callId })!
+      .files[0]!
+    expect(transformFile(after, file, 'undo')).toBe(before)
   })
 
   // 验证一次工具调用同时编辑和新建或删除文件时，普通编辑差异与生命周期快照都被保留。

@@ -10,7 +10,7 @@ const workflow = readFileSync(
 )
 
 const extractRunBlock = (name: string): string => {
-  const lines = workflow.split('\n')
+  const lines = workflow.replace(/\r\n/g, '\n').split('\n')
   const step = lines.findIndex((line) => line === `      - name: ${name}`)
   const run = lines.findIndex((line, index) => index > step && line === '        run: |')
   const end = lines.findIndex((line, index) => index > run && line.startsWith('      - name: '))

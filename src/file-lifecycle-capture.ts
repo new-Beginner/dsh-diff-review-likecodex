@@ -12,7 +12,8 @@ import type {
   ToolExecutionResult,
   ToolExecutionToken,
 } from '@deepseek-ai/dsh-tools'
-import { structuredPatch, type StructuredPatchHunk } from 'diff'
+import { structuredPatch } from 'diff'
+import { canonicalReviewPath, reviewPathKey } from './review-path.ts'
 import type { ProducedFileDiff } from './change-types.ts'
 import type { PresentedFileChange } from './ptc-marker.ts'
 import {
@@ -33,8 +34,6 @@ interface FileCapture {
 }
 
 type CapturedImage = MissingCapture | FileCapture
-
-const INLINE_UNCHANGED_LINES = 5
 
 interface CapturedResult {
   readonly files: readonly PresentedFileChange[]
@@ -82,7 +81,7 @@ function pathOf(value: unknown): string | null {
   return typeof path === 'string' && path !== '' ? path : null
 }
 
-function mutationPaths(view: ToolCallView | undefined): readonly string[] {
+function mutationPaths(view: ToolCallView | undefined, cwd?: string): readonly string[] {
   if (view === undefined) return []
   const mutation =
     view.card === 'diff' ||
@@ -91,9 +90,11 @@ function mutationPaths(view: ToolCallView | undefined): readonly string[] {
   const paths: string[] = []
   const seen = new Set<string>()
   const append = (path: string | null): void => {
-    if (path === null || seen.has(path)) return
-    seen.add(path)
-    paths.push(path)
+    if (path === null) return
+    const key = reviewPathKey(path, cwd)
+    if (seen.has(key)) return
+    seen.add(key)
+    paths.push(canonicalReviewPath(path, cwd))
   }
   if ('locations' in view) for (const location of view.locations ?? []) append(pathOf(location))
   if (view.card === 'diff') for (const diff of view.diffs) append(pathOf(diff))
@@ -123,7 +124,7 @@ async function captureImages(
   paths: readonly string[],
 ): Promise<ReadonlyMap<string, CapturedImage | null>> {
   const entries = await Promise.all(
-    paths.map(async (path) => [path, await capturePath(root, path)] as const),
+    paths.map(async (path) => [reviewPathKey(path, root), await capturePath(root, path)] as const),
   )
   return new Map(entries)
 }
@@ -153,40 +154,15 @@ function lineRange(text: string, start: number, count: number): string | null {
   return text.slice(from, to)
 }
 
-type HunkRange = Pick<StructuredPatchHunk, 'oldStart' | 'oldLines' | 'newStart' | 'newLines'>
-
-/** Keep up to five unchanged lines inline by joining compatible neighboring hunks. */
-function mergeNearbyHunks(hunks: readonly StructuredPatchHunk[]): HunkRange[] {
-  const merged: HunkRange[] = []
-  for (const hunk of hunks) {
-    const previous = merged.at(-1)
-    if (previous !== undefined) {
-      const oldGap = hunk.oldStart - (previous.oldStart + previous.oldLines)
-      const newGap = hunk.newStart - (previous.newStart + previous.newLines)
-      if (oldGap === newGap && oldGap >= 0 && oldGap <= INLINE_UNCHANGED_LINES) {
-        previous.oldLines = hunk.oldStart + hunk.oldLines - previous.oldStart
-        previous.newLines = hunk.newStart + hunk.newLines - previous.newStart
-        continue
-      }
-    }
-    merged.push({
-      oldStart: hunk.oldStart,
-      oldLines: hunk.oldLines,
-      newStart: hunk.newStart,
-      newLines: hunk.newLines,
-    })
-  }
-  return merged
-}
-
 /** Derive authoritative, line-addressed hunks from complete before/after file images. */
 function snapshotDiffs(
   path: string,
   oldText: string,
   newText: string,
 ): readonly ProducedFileDiff[] {
-  const patch = structuredPatch(path, path, oldText, newText, undefined, undefined, { context: 0 })
-  return mergeNearbyHunks(patch.hunks).flatMap((hunk) => {
+  // jsdiff merges overlapping context itself; never concatenate independently padded ranges.
+  const patch = structuredPatch(path, path, oldText, newText, undefined, undefined, { context: 3 })
+  return patch.hunks.flatMap((hunk) => {
     const oldRange = lineRange(oldText, hunk.oldStart, hunk.oldLines)
     const newRange = lineRange(newText, hunk.newStart, hunk.newLines)
     return oldRange === null || newRange === null
@@ -208,11 +184,13 @@ function snapshotFiles(
   paths: readonly string[],
   before: ReadonlyMap<string, CapturedImage | null>,
   after: ReadonlyMap<string, CapturedImage | null>,
+  root: string,
 ): readonly PresentedFileChange[] {
   const files: PresentedFileChange[] = []
   for (const path of paths) {
-    const oldImage = before.get(path)
-    const newImage = after.get(path)
+    const key = reviewPathKey(path, root)
+    const oldImage = before.get(key)
+    const newImage = after.get(key)
     if (oldImage?.kind === 'missing' && newImage?.kind === 'file') {
       files.push({
         path,
@@ -259,14 +237,38 @@ function snapshotFiles(
 function mergePresentedFiles(
   presented: readonly PresentedFileChange[],
   captured: readonly PresentedFileChange[],
+  cwd: string,
 ): readonly PresentedFileChange[] {
-  const replacements = new Map(captured.map((file) => [file.path, file]))
-  const merged = presented.map((file) => {
-    const replacement = replacements.get(file.path)
-    replacements.delete(file.path)
-    return replacement ?? file
-  })
-  return [...merged, ...replacements.values()]
+  const replacements = new Map(captured.map((file) => [reviewPathKey(file.path, cwd), file]))
+  const merged = new Map<string, PresentedFileChange>()
+  for (const file of [...presented, ...captured]) {
+    const key = reviewPathKey(file.path, cwd)
+    const replacement = replacements.get(key)
+    if (replacement !== undefined) {
+      merged.set(key, replacement)
+      continue
+    }
+    const previous = merged.get(key)
+    const path = previous?.path ?? canonicalReviewPath(file.path, cwd)
+    const diffs = [...(previous?.diffs ?? [])]
+    for (const diff of file.diffs) {
+      const canonical = { ...diff, path }
+      if (
+        !previous?.diffs.some(
+          (existing) =>
+            existing.oldText === canonical.oldText &&
+            existing.newText === canonical.newText &&
+            existing.oldStart === canonical.oldStart &&
+            existing.newStart === canonical.newStart &&
+            existing.lifecycle?.kind === canonical.lifecycle?.kind &&
+            existing.lifecycle?.mode === canonical.lifecycle?.mode,
+        )
+      )
+        diffs.push(canonical)
+    }
+    merged.set(key, { ...file, path, diffs })
+  }
+  return [...merged.values()]
 }
 
 /** Register snapshot capture without changing mutation-tool success or failure semantics. */
@@ -283,7 +285,7 @@ export function registerFileLifecycleCapture(ctx: Context): void {
       try {
         const definition = ctx.tools.get(exec.name, agent)
         callView = definition?.presentCall?.(exec.arguments)
-        paths = mutationPaths(callView)
+        paths = mutationPaths(callView, cwd)
       } catch {
         paths = []
       }
@@ -302,7 +304,7 @@ export function registerFileLifecycleCapture(ctx: Context): void {
       if (result.isError) return result
       try {
         const after = await captureImages(root, paths)
-        const snapshots = snapshotFiles(paths, before, after)
+        const snapshots = snapshotFiles(paths, before, after, root)
         let presented: readonly PresentedFileChange[]
         try {
           const resultView = ctx.tools
@@ -312,7 +314,7 @@ export function registerFileLifecycleCapture(ctx: Context): void {
         } catch {
           presented = normalizeMutationPresentation(callView, undefined)
         }
-        const files = mergePresentedFiles(presented, snapshots)
+        const files = mergePresentedFiles(presented, snapshots, cwd)
         const owner = rootCall(agent, exec.rootCallId)
         if (snapshots.length > 0 && files.length > 0 && owner !== null) {
           captured.set(exec.token, {

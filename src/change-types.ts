@@ -22,6 +22,8 @@ export interface ProducedFileReview {
   readonly diffs: readonly ProducedFileDiff[]
   /** False when at least one operation on this path lacked a complete snapshot. */
   readonly complete?: false | undefined
+  /** Legacy upstream records are reviewable but never eligible for mutation. */
+  readonly readOnly?: true | undefined
 }
 
 /** Direction requested by the produced-files toggle. */

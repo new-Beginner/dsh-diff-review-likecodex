@@ -1,4 +1,4 @@
-/** 验证多文件折叠、同文件多处修改统计以及跨轮次 Review 标签页切换。 */
+/** 验证多文件始终展开、同文件多处修改统计以及跨轮次 Review 标签页切换。 */
 
 import { expect } from '@playwright/test'
 import { test } from './fixture.ts'
@@ -39,8 +39,8 @@ test.beforeEach(async () => {
   ])
 })
 
-// 验证七文件卡片默认展示六项，展开后显示全部文件，逐文件统计与总计一致。
-test('七文件卡片先显示六项并可展开剩余文件', async ({ page, agentForPage }) => {
+// 验证七文件卡片直接展示全部文件，逐文件统计与总计一致。
+test('七文件卡片始终展开全部文件', async ({ page, agentForPage }) => {
   const composer = await openNewSession(page, 'code')
   const agent = await agentForPage(page)
   const changes = overflowFiles
@@ -56,13 +56,8 @@ test('七文件卡片先显示六项并可展开剩余文件', async ({ page, ag
 
   await expect(card.getByText(/^(?:Edited 7 files|已编辑 7 个文件)$/)).toBeVisible()
   await expect(card.getByLabel(statsName(7, 7))).toHaveCount(1)
-  for (const target of overflowFiles.slice(0, 6)) {
-    await expect(card.getByText(target.basename, { exact: true })).toBeVisible()
-  }
-  await expect(card.getByText(overflowFiles[6]!.basename, { exact: true })).toHaveCount(0)
-  await expect(card.getByLabel(statsName(1, 1))).toHaveCount(6)
-
-  await card.getByRole('button', { name: /^(?:1 more file|另有 1 个文件)$/ }).click()
+  await expect(card.getByRole('button', { name: /^(?:1 more file|另有 1 个文件)$/ })).toHaveCount(0)
+  await expect(page.locator('[data-file-review-live]')).toHaveCount(0)
   for (const [index, target] of overflowFiles.entries()) {
     await expect(card.getByText(target.basename, { exact: true })).toBeVisible()
     await expectFileText(target.absolutePath, `after-${index + 1}\n`)

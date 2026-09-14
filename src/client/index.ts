@@ -1,16 +1,7 @@
-/**
- * File-review plugin, browser half: registers the produced-files card into
- * the chat view's turn-tail chain, and provides the `chatFileMentions`
- * service that links inline-code mentions of produced files in the closing
- * prose. All policy lives here — the derivation from the mutation tools'
- * `locations`, the mention matching, the chip cap, and the copy — so
- * composing this plugin out of cordis.yml removes both surfaces entirely;
- * the owning view renders an empty chain and inert prose at zero cost.
- */
+/** Browser registration for the isolated Diff Review Likecodex plugin. */
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import type { ISessions } from '@deepseek-ai/dsh-api-session-controller/client'
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
-import type { ChatFileMentions } from '@deepseek-ai/dsh-client-ui-chat/client'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
@@ -25,28 +16,22 @@ import {
   type DiffLayout,
 } from '../settings-contract.ts'
 import { ProducedFiles } from './ProducedFiles.tsx'
-import { installNativeSidebarIntegration } from './native-sidebar-adapter.tsx'
+import { LiveReviewDock } from './LiveReviewDock.tsx'
+import { installReviewNavigation } from './review-navigation.tsx'
 import type { FileReviewTabRuntime } from './FileReviewTab.tsx'
 import { FileReviewSettingsCard } from './FileReviewSettingsCard.tsx'
 import { ReviewCommentsDock } from './ReviewCommentsDock.tsx'
 import { ReviewUserMessage } from './ReviewUserMessage.tsx'
 import { en, NS, zh, type DeliverablesKey } from './locales.ts'
-import {
-  deliverablesDefinition,
-  producedFileMentions,
-  selectProducedFiles,
-} from './turn-deliverables.ts'
+import { deliverablesDefinition, selectProducedFiles } from './turn-deliverables.ts'
 import { bindReviewReference, reviewCommentSource } from './review-reference.ts'
 import { clearAllReviewComments } from './review-comments.ts'
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface LocaleNamespaceMap {
-    /** Produced-files row copy. */
-    'file-review': DeliverablesKey
+    'diff-review-likecodex': DeliverablesKey
   }
 }
-
-/** Required services for the tail-slot registration and its dictionaries. */
 export const inject = [
   'slots',
   'locale',
@@ -61,16 +46,10 @@ export const inject = [
   'sidebarRightTabs',
 ]
 
-/**
- * Client plugin body: register the dictionaries and the turn-tail entry.
- * @param ctx - client root context.
- */
 export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
   const disposeRemote = await ctx.remote.$mount(TYPERT_REMOTE)
   const disposeReviewSource = ctx.inputTriggers.registerSource(reviewCommentSource())
-  const settings = ctx.settingsScope.bind<Config>({
-    namespace: FILE_REVIEW_SETTINGS_NAMESPACE,
-  })
+  const settings = ctx.settingsScope.bind<Config>({ namespace: FILE_REVIEW_SETTINGS_NAMESPACE })
   const wordWrap = {
     getSnapshot: () => settings.getSnapshot().value?.wordWrap ?? DEFAULT_WORD_WRAP,
     subscribe: (listener: () => void) => settings.subscribe(listener),
@@ -78,13 +57,9 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
   const t = ctx.locale.bind(NS)
   const reviewBindings = new Map<string, ReturnType<typeof bindReviewReference>>()
   const reviewRemotes = new Map<string, FileReviewTabRuntime>()
-  // The package ships Host and browser halves in one TypeScript program. The Host
-  // SessionStore and browser ISessions intentionally share the Cordis key, so keep
-  // this platform-specific narrowing at the browser entry boundary.
+  // Host and browser share a service key but have different Session interfaces.
   const sessions = (ctx as unknown as { readonly sessions: ISessions }).sessions
-  const reviewBindingFor = (
-    sessionId: SessionId,
-  ): ReturnType<typeof bindReviewReference> | undefined => {
+  const reviewBindingFor = (sessionId: SessionId) => {
     let binding = reviewBindings.get(sessionId)
     if (binding !== undefined) return binding
     const session = sessions.binding(sessionId)
@@ -108,8 +83,8 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
     ): Promise<FileReviewResult> => {
       const scope = sessions.scope(sessionId)
       if (scope === undefined) throw new Error('Session is unavailable')
-      const fileReview = scope.get('remote.fileReview')
-      if (fileReview === undefined) throw new Error('File review remote is unavailable')
+      const fileReview = scope.get('remote.diffReviewLikecodex')
+      if (fileReview === undefined) throw new Error('Diff Review Likecodex remote is unavailable')
       const result = await fileReview[method](request)
       if (!result.ok) throw new Error(result.error.message)
       return result.value
@@ -117,9 +92,6 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
     remote = {
       inspectChanges: (request) => invoke('status', request),
       applyChanges: (request) => invoke('apply', request),
-      // Creating a review binding subscribes to composer-reference state. Keep
-      // that work out of the Tab component's render path and only do
-      // it when comments actually need reconciliation.
       syncComments: () => {
         reviewBindingFor(sessionId)?.sync()
       },
@@ -127,7 +99,7 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
     reviewRemotes.set(sessionId, remote)
     return remote
   }
-  const openReview = installNativeSidebarIntegration(ctx, {
+  const openReview = installReviewNavigation(ctx, {
     sessions,
     uiConversation: ctx.uiConversation,
     wordWrap,
@@ -136,7 +108,7 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
     runtimeFor: reviewRemoteFor,
   })
   ctx.uiConversation.events.register(deliverablesDefinition)
-  ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'file-review: dictionaries')
+  ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'dsh-diff-review-likecodex: dictionaries')
   ctx.slots.inject('settings.plugin.item', () =>
     ctx.slots.register(
       {
@@ -157,14 +129,27 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
     ctx.slots.register(
       {
         name: 'conversation.input.dock',
-        id: 'file-review-comments',
+        id: 'dsh-diff-review-likecodex:comments',
         order: -10,
+        locale: NS,
+        inject: (sessionId) => ({ projectRoot: sessions.list.getSnapshot().byId[sessionId]?.cwd }),
+      },
+      ReviewCommentsDock,
+    ),
+  )
+  ctx.slots.inject('conversation.input.dock', () =>
+    ctx.slots.register(
+      {
+        name: 'conversation.input.dock',
+        id: 'dsh-diff-review-likecodex:live',
+        order: -20,
         locale: NS,
         inject: (sessionId) => ({
           projectRoot: sessions.list.getSnapshot().byId[sessionId]?.cwd,
+          openReview: (target: Parameters<typeof openReview>[1]) => openReview(sessionId, target),
         }),
       },
-      ReviewCommentsDock,
+      LiveReviewDock,
     ),
   )
   for (const key of ['user', 'steering'] as const) {
@@ -173,7 +158,7 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
         {
           name: 'conversation.chat.node',
           key,
-          priority: -10,
+          priority: -20,
           locale: 'chat',
           inject: () => ({ reviewT: ctx.locale.bind(NS) }),
         },
@@ -186,12 +171,13 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
       {
         name: 'conversation.chat.turnTail',
         select: selectProducedFiles,
-        priority: -2,
-        registrant: 'dsh-file-review',
+        priority: -3,
+        registrant: 'dsh-diff-review-likecodex',
         locale: NS,
         inject: (sessionId) => {
           const remote = reviewRemoteFor(sessionId)
           return {
+            projectRoot: sessions.list.getSnapshot().byId[sessionId]?.cwd,
             openReview: (target: Parameters<typeof openReview>[1]) => openReview(sessionId, target),
             inspectChanges: remote.inspectChanges,
             applyChanges: remote.applyChanges,
@@ -201,22 +187,8 @@ export async function apply(ctx: ClientContext): Promise<() => Promise<void>> {
       ProducedFiles,
     ),
   )
-  // The prose side of the same vocabulary: the chat view reaches this face
-  // via ctx.get, so its absence — this plugin composed out — is the off state.
-  const mentions: ChatFileMentions = {
-    forClosing(owner) {
-      // Same claim test the turn-tail chain entry runs: no produced files,
-      // no vocabulary — the two surfaces agree by construction.
-      const reviews = selectProducedFiles(owner)
-      if (reviews === null) return undefined
-      return producedFileMentions(
-        reviews.map((review) => review.path),
-        owner.openFile,
-        (path) => t('produced.open', { name: path }),
-      )
-    },
-  }
-  ctx.provide('chatFileMentions', mentions)
+  // Do not publish the shared chatFileMentions face: upstream owns it and
+  // may load before OR after this fork. Review navigation uses our own slots.
   return async () => {
     for (const binding of reviewBindings.values()) binding.dispose()
     reviewBindings.clear()

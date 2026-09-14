@@ -1,6 +1,3 @@
-- id: ui-deliverables
-  disabled: true
-
 - insert:
-    - id: file-review
-      name: 'dsh-file-review'
+    - id: dsh-diff-review-likecodex:plugin
+      name: 'dsh-diff-review-likecodex'

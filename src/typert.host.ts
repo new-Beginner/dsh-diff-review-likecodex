@@ -11,7 +11,7 @@ export const TYPERT: TypertContribution = {
   model: {
     services: [
       {
-        key: 'fileReview',
+        key: 'diffReviewLikecodex',
         exportName: 'FileReviewService',
         summary: 'Safely inspect and toggle one turn of produced text changes.',
         tags: [],

@@ -172,7 +172,7 @@ it('synchronizes settings and review controls and keeps the chosen layout on reo
       <Review settings={settings} />
     </>,
   )
-  fireEvent.click(view.getByRole('button', { name: 'Expand: File review' }))
+  fireEvent.click(view.getByRole('button', { name: 'Expand: Diff Review Likecodex' }))
   const selectors = view.getAllByRole('combobox', { name: 'Diff layout' })
   await act(async () => {
     fireEvent.change(selectors[1]!, { target: { value: 'unified' } })
@@ -190,7 +190,7 @@ it('synchronizes settings and review controls and keeps the chosen layout on reo
     </>,
   )
   expect(reopened.container.querySelector('[data-diff-layout="unified"]')).not.toBeNull()
-  fireEvent.click(reopened.getByRole('button', { name: 'Expand: File review' }))
+  fireEvent.click(reopened.getByRole('button', { name: 'Expand: Diff Review Likecodex' }))
   await act(async () => {
     fireEvent.change(reopened.getAllByRole('combobox')[0]!, { target: { value: 'split' } })
   })

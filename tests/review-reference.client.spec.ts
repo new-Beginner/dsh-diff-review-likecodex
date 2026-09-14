@@ -232,7 +232,9 @@ describe('review comment composer reference', () => {
     input.transition('plain', true)
     expect(reviewComments('session-1')).toHaveLength(2)
     expect(input.snapshot.occurrences).toHaveLength(1)
-    events.append(userMessage('<file_review_comments>sent</file_review_comments>'))
+    events.append(
+      userMessage('<diff_review_likecodex_comments>sent</diff_review_likecodex_comments>'),
+    )
     expect(reviewComments('session-1')).toHaveLength(0)
     expect(input.snapshot.draft).toBe('')
     expect(input.snapshot.occurrences).toHaveLength(0)
@@ -260,6 +262,7 @@ describe('review comment composer reference', () => {
     const binding = bindReviewReference(scope, 'session-1', input, t, events)
     input.transition('plain', true)
     events.append(userMessage('An unrelated message'))
+    events.append(userMessage('<file_review_comments>upstream only</file_review_comments>'))
     expect(reviewComments('session-1')).toHaveLength(1)
     expect(input.snapshot.occurrences).toHaveLength(1)
     binding.dispose()
@@ -287,7 +290,9 @@ describe('review comment composer reference', () => {
 
     input.type(`${REVIEW_REFERENCE}Question`)
     input.transition('plain', true)
-    events.append(userMessage('<file_review_comments>sent</file_review_comments>'))
+    events.append(
+      userMessage('<diff_review_likecodex_comments>sent</diff_review_likecodex_comments>'),
+    )
 
     expect(input.snapshot.draft).toBe('')
     binding.dispose()
