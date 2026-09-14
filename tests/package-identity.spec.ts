@@ -15,9 +15,16 @@ const manifest = JSON.parse(readFileSync(new URL('../package.json', import.meta.
 describe('package identity', () => {
   it('isolates the fork identity without redirecting feedback to upstream', () => {
     expect(manifest.name).toBe('dsh-diff-review-likecodex')
-    for (const field of ['homepage', 'bugs', 'repository']) {
-      expect(manifest).not.toHaveProperty(field)
-    }
+    expect((manifest as Record<string, unknown>).repository).toEqual({
+      type: 'git',
+      url: 'git+https://github.com/new-Beginner/dsh-diff-review-likecodex.git',
+    })
+    expect((manifest as Record<string, unknown>).bugs).toEqual({
+      url: 'https://github.com/new-Beginner/dsh-diff-review-likecodex/issues',
+    })
+    expect((manifest as Record<string, unknown>).homepage).toBe(
+      'https://github.com/new-Beginner/dsh-diff-review-likecodex#readme',
+    )
     const patch = readFileSync(new URL('../cordis.patch.yml', import.meta.url), 'utf8')
     expect(patch).toContain('id: dsh-diff-review-likecodex:plugin')
     expect(patch).not.toContain('ui-deliverables')

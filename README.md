@@ -14,11 +14,32 @@ English · [简体中文](README.zh.md)
 
 ## Repository and namespace
 
-`dsh-diff-review-likecodex` is an independent plugin hosted at [new-Beginner/dsh-diff-review-likecodex](https://github.com/new-Beginner/dsh-diff-review-likecodex).
+`dsh-diff-review-likecodex` is hosted at [new-Beginner/dsh-diff-review-likecodex](https://github.com/new-Beginner/dsh-diff-review-likecodex).
 
 The plugin owns the `diffReviewLikecodex` remote/service namespace, `diff-review-likecodex` settings/locale namespace, `dshDiffReviewLikecodex` marker property, and `diff-review-likecodex.deliverables` turn data key. Its UI/plugin registration IDs use the `dsh-diff-review-likecodex:` prefix. Public DSH slots retain their framework names; this plugin does not register the shared `chatFileMentions` service, avoiding conflicts with other plugins.
 
 Historical compatibility markers are read-only compatibility data, used only when no plugin marker is present. The Host neither consumes legacy markers as its own nor deletes or rewrites them. New comments use `<diff_review_likecodex_comments>`; historical `<file_review_comments>` messages remain displayable without writing legacy services or settings. The Cordis patch only inserts this plugin and does not disable DSH's built-in deliverables plugin.
+
+## Acknowledgements and upstream origin
+
+This project is an independently maintained fork derived from [left0ver](https://github.com/left0ver)'s [dsh-file-review](https://github.com/left0ver/dsh-file-review) repository. We express sincere gratitude to the original author for the initial concept and open-source foundation.
+
+## Changes and enhancements compared to original
+
+1. **Codex-like review entry (Interaction Scheme A)**:
+   - Removed the intrusive "Review" button from the session header bar.
+   - Retained and enhanced the native right sidebar review tabs and message-tail review shortcuts.
+   - Added a compact, content-adaptive review dock above the composer while a turn is running; it smoothly fades out once the turn settles or stops.
+2. **Turn-scoped deliverable diffs & history isolation**:
+   - Introduced a turn picker in the review page to load all recorded file edits strictly within the selected conversation turn, preventing multi-turn edit confusion.
+   - Merged absolute and relative workspace path aliases without double counting; disambiguated same-named files in different directories by prepending parent folders.
+3. **Independent namespaces and zero-conflict isolation**:
+   - Uses dedicated `diffReviewLikecodex` Remote and `diff-review-likecodex` setting/locale namespaces.
+   - Comment tags are isolated as `<diff_review_likecodex_comments>`.
+   - Avoids occupying shared slots and services, preventing conflicts with other plugins.
+4. **Enhanced review readability**:
+   - Added word-wrap toggles in plugin configuration for seamless inspection of long lines.
+   - Retains 3 real context lines before and after changes without fabricating synthetic context.
 
 ## How to use
 
@@ -85,10 +106,6 @@ dsh plugin --profile web update dsh-diff-review-likecodex
 ```sh
 dsh plugin --profile web remove dsh-diff-review-likecodex
 ```
-
-## Friendly Links
-
-[LINUX DO](https://linux.do/) — A new ideal community
 
 ## License
 
