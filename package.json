@@ -1,12 +1,18 @@
 {
   "name": "dsh-diff-review-likecodex",
   "version": "1.0.0",
-  "description": "Review DeepSeek Harness file changes with Codex-like UX in native sidebar tabs, compact running dock, and turn-scoped deliverable diffs.",
+  "description": "Codex-like diff review plugin for DeepSeek Harness Web: interactive side-by-side file diffs, compact floating review bar, and turn-scoped deliverable change tracking.",
   "keywords": [
+    "better-sidebar",
     "code-review",
+    "codex",
     "deepseek-harness",
     "diff",
-    "dsh-plugin"
+    "diff-viewer",
+    "dsh-plugin",
+    "file-review",
+    "side-by-side-diff",
+    "turn-scoped-diff"
   ],
   "homepage": "https://github.com/new-Beginner/dsh-diff-review-likecodex#readme",
   "bugs": {
