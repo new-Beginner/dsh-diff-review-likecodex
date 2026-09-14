@@ -14,11 +14,32 @@
 
 ## 仓库与命名空间
 
-`dsh-diff-review-likecodex` 是托管于 [new-Beginner/dsh-diff-review-likecodex](https://github.com/new-Beginner/dsh-diff-review-likecodex) 的独立插件。
+`dsh-diff-review-likecodex` 代码仓库托管于 [new-Beginner/dsh-diff-review-likecodex](https://github.com/new-Beginner/dsh-diff-review-likecodex)。
 
 本项目使用独立的 `diffReviewLikecodex` remote/service 命名空间、`diff-review-likecodex` settings/locale 命名空间、`dshDiffReviewLikecodex` 标记属性和 `diff-review-likecodex.deliverables` 轮次数据键。自有 UI/插件注册 ID 使用 `dsh-diff-review-likecodex:` 前缀。公共 DSH slot 保留框架原名；本项目不注册共享的 `chatFileMentions` 服务，避免与其他插件冲突。
 
 历史兼容标记仅作为只读兼容数据，且只在不存在本项目标记时读取。Host 不会将旧标记当作自己的数据，也不会删除或重写它们。新评论使用 `<diff_review_likecodex_comments>`；历史 `<file_review_comments>` 消息仍可显示，但不会写入旧服务或设置。Cordis patch 只插入本项目，不再禁用 DSH 内置 deliverables 插件。
+
+## 致谢与上游来源
+
+本项目衍生并汲取自 [left0ver](https://github.com/left0ver) 开源的 [dsh-file-review](https://github.com/left0ver/dsh-file-review) 项目。在此向原作者致以由衷的感谢，感谢其为社区带来的初始创意与开源基石。
+
+## 相较于原项目的改变与特性增强
+
+1. **Codex 风格审查交互入口（方案 A）**：
+   - 移除了会话顶部标题栏较为突兀的常驻“审查”按钮；
+   - 保留并强化了原生右侧栏的审查页签以及消息流尾部卡片的审查快捷入口；
+   - 引入运行中在输入框上方显示的紧凑型自适应悬浮审查条（运行中展示变动文件与状态，运行完成后自动淡出收起），提供更加平滑沉浸的审查体验。
+2. **多轮变更加载与轮次隔离（Turn-scoped Changes）**：
+   - 在右侧栏审查页引入轮次选择器（Turn picker），可精准回溯和加载指定单轮对话中的全部文件编辑记录，避免历史多轮改动混淆；
+   - 路径别名聚合：同一工作区下文件的绝对路径与相对路径别名自动合并，避免重复统计；不同目录下同名文件自动显示父目录消歧。
+3. **完全独立的命名空间与零冲突隔离**：
+   - 采用独立的 `diffReviewLikecodex` Remote 远程服务与 `diff-review-likecodex` 设置/多语言空间；
+   - 评论标记独立为 `<diff_review_likecodex_comments>`；
+   - 公共 DSH slot 保留框架规范，不抢占共享的 `chatFileMentions` 服务，避免与其他插件冲突。
+4. **长文本自动换行与真实上下文采集**：
+   - 在插件配置中提供代码长行自动换行开关（Word Wrap）；
+   - 新采集的差异保留修改前后各三行真实上下文，绝不伪造历史上下文。
 
 ## 怎么用
 
@@ -85,10 +106,6 @@ dsh plugin --profile web update dsh-diff-review-likecodex
 ```sh
 dsh plugin --profile web remove dsh-diff-review-likecodex
 ```
-
-## 友情链接
-
-[LINUX DO](https://linux.do/) — 新的理想型社区
 
 ## 许可证
 
