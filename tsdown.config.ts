@@ -3,15 +3,15 @@ import { basename, dirname, resolve } from 'node:path'
 import type { UserConfig } from 'tsdown'
 import { transform } from 'lightningcss'
 
-const PACKAGE_NAME = 'dsh-file-review'
-const CSS_VIRTUAL_PREFIX = '\0dsh-file-review-css:'
+const PACKAGE_NAME = 'dsh-diff-review-likecodex'
+const CSS_VIRTUAL_PREFIX = '\0dsh-diff-review-likecodex-css:'
 const CSS_VIRTUAL_SUFFIX = '.mjs'
 const CLIENT_EXTERNALS = ['react', 'react/jsx-runtime'] as const
 
 /** Compile CSS Modules into package-owned style elements understood by the Web plugin loader. */
 function cssModulesPlugin() {
   return {
-    name: 'dsh-file-review-css-modules',
+    name: 'dsh-diff-review-likecodex-css-modules',
     resolveId(source: string, importer: string | undefined) {
       if (!source.endsWith('.module.css')) return null
       const file = importer === undefined ? source : resolve(dirname(importer), source)
@@ -25,7 +25,7 @@ function cssModulesPlugin() {
       const { code, exports } = transform({
         filename: file,
         code: source,
-        cssModules: { pattern: '[hash]_[local]' },
+        cssModules: { pattern: 'likecodex_[hash]_[local]' },
         minify: true,
       })
       const classes: Record<string, string> = {}

@@ -86,11 +86,11 @@ function sanitizeLoggedContent(content: ContentBlock[]): ContentBlock[] {
     if (
       typeof block !== 'object' ||
       block === null ||
-      !Object.prototype.hasOwnProperty.call(block, 'dshFileReview')
+      !Object.prototype.hasOwnProperty.call(block, 'dshDiffReviewLikecodex')
     )
       continue
     const copy = { ...block } as Record<string, unknown>
-    delete copy.dshFileReview
+    delete copy.dshDiffReviewLikecodex
     sanitized ??= [...content]
     sanitized[index] = copy as unknown as ContentBlock
   }
@@ -114,10 +114,11 @@ export async function adaptPtcDispatchLog(
     if (start === null) return loggedContent
     const root = rootCall(events, start.rootCallId)
     if (root === null) return loggedContent
-    const captured = markerFromContent(dispatch.content, {
-      rootCallId: start.rootCallId,
-      subCallId: start.subCallId,
-    })
+    const captured = markerFromContent(
+      dispatch.content,
+      { rootCallId: start.rootCallId, subCallId: start.subCallId },
+      false,
+    )
     const definition = ctx.tools.get(dispatch.name, dispatch.agent)
     if (definition === undefined) return loggedContent
     const call =

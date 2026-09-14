@@ -3,7 +3,12 @@ import type { ContentBlock } from '@deepseek-ai/dsh-llm'
 import type { PtcDispatchLog, ToolDefinition } from '@deepseek-ai/dsh-tools'
 import { describe, expect, it, vi } from 'vitest'
 import { adaptPtcDispatchLog, registerPtcAdapter } from '../src/ptc-adapter.ts'
-import { boundedPtcFileReviewMarker, markerBlock, markerFromContent } from '../src/ptc-marker.ts'
+import {
+  boundedPtcFileReviewMarker,
+  markerBlock,
+  markerFromContent,
+  markerOriginFromContent,
+} from '../src/ptc-marker.ts'
 
 const ROOT = 'root-call'
 const SUB = 'root-call:code:0'
@@ -106,6 +111,81 @@ describe('PTC Host Adapter', () => {
       truncated: false,
     }
     expect(marker([{ type: 'text', text: '', dshFileReview: legacy }])?.schema).toBe(1)
+  })
+
+  it('prefers fork markers regardless of ordering and exposes read-only legacy origin', () => {
+    const expected = { rootCallId: ROOT, subCallId: SUB }
+    const current = boundedPtcFileReviewMarker({
+      ...expected,
+      turn: 3,
+      step: 2,
+      files: [{ path: 'fork.txt', source: 'result', diffs: [] }],
+    })!
+    const legacy = { ...current, files: [{ path: 'upstream.txt', source: 'result', diffs: [] }] }
+    const upstreamBlock = { type: 'text', text: '', dshFileReview: legacy }
+    expect(markerBlock(current)).not.toHaveProperty('dshFileReview')
+    for (const content of [
+      [upstreamBlock, markerBlock(current)],
+      [markerBlock(current), upstreamBlock],
+      [{ ...upstreamBlock, dshDiffReviewLikecodex: current }],
+    ]) {
+      expect(markerFromContent(content, expected)).toEqual(current)
+      expect(markerOriginFromContent(content, expected)).toBe('current')
+    }
+    expect(markerFromContent([upstreamBlock], expected)).toEqual(legacy)
+    expect(markerOriginFromContent([upstreamBlock], expected)).toBe('legacy')
+    expect(markerFromContent([upstreamBlock], expected, false)).toBeNull()
+    expect(markerOriginFromContent([upstreamBlock], expected, false)).toBeNull()
+    const invalidCurrent = { type: 'text', text: '', dshDiffReviewLikecodex: {} }
+    expect(markerFromContent([upstreamBlock, invalidCurrent], expected)).toBeNull()
+    expect(markerOriginFromContent([upstreamBlock, invalidCurrent], expected)).toBeNull()
+  })
+
+  it('preserves upstream markers while sanitizing only its own property', async () => {
+    const upstream = boundedPtcFileReviewMarker({
+      turn: 3,
+      step: 2,
+      rootCallId: ROOT,
+      subCallId: SUB,
+      files: [{ path: 'upstream.txt', source: 'result', diffs: [] }],
+    })!
+    const upstreamBlock = { type: 'text', text: '', dshFileReview: upstream }
+    const mixedBlock = { ...upstreamBlock, dshDiffReviewLikecodex: upstream }
+    const shaped = [upstreamBlock, mixedBlock] as unknown as ContentBlock[]
+    const { ctx, dispatch } = fixture({}, { isError: true })
+    const content = await adaptPtcDispatchLog(ctx, dispatch, async () => shaped)
+    expect(content[0]).toBe(upstreamBlock)
+    expect(content[1]).toEqual(upstreamBlock)
+    expect(content[1]).not.toHaveProperty('dshDiffReviewLikecodex')
+    expect(mixedBlock.dshDiffReviewLikecodex).toBe(upstream)
+    expect((content[1] as unknown as typeof upstreamBlock).dshFileReview).toBe(upstream)
+  })
+
+  it('does not promote an upstream captured marker into the fork log', async () => {
+    const upstream = boundedPtcFileReviewMarker({
+      turn: 3,
+      step: 2,
+      rootCallId: ROOT,
+      subCallId: SUB,
+      files: [{ path: 'upstream.txt', source: 'result', diffs: [] }],
+    })!
+    const { ctx, dispatch } = fixture({
+      presentCall: () => ({
+        card: 'generic',
+        title: 'Edit',
+        kind: 'edit',
+        locations: [{ path: 'fork.txt' }],
+      }),
+    })
+    const upstreamBlock = { type: 'text', text: '', dshFileReview: upstream }
+    ;(dispatch as { content: ContentBlock[] }).content = [upstreamBlock] as ContentBlock[]
+    const content = await adaptPtcDispatchLog(
+      ctx,
+      dispatch,
+      async () => [upstreamBlock] as ContentBlock[],
+    )
+    expect(content[0]).toBe(upstreamBlock)
+    expect(marker(content)?.files.map(({ path }) => path)).toEqual(['fork.txt'])
   })
 
   // 验证处理嵌套 PTC 结果时优先保留实际捕获的文件生命周期快照，而非展示层推测。
@@ -385,7 +465,7 @@ describe('PTC Host Adapter', () => {
 
     expect(content.map((block) => (block.type === 'text' ? block.text : '')).join('')).toBe('kept')
     expect(marker(content)).toBeNull()
-    expect(content.some((block) => 'dshFileReview' in block)).toBe(false)
+    expect(content.some((block) => 'dshDiffReviewLikecodex' in block)).toBe(false)
   })
 
   // 验证持久化标记超过字节限制时移除差异正文，保留文件路径并标记为已截断。

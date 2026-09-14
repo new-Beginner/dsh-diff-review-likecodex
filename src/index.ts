@@ -57,7 +57,7 @@ export function apply(ctx: Context, config: ConfigShape = {}): void {
   registerFileLifecycleCapture(ctx)
   registerPtcAdapter(ctx)
   ctx.systemPrompt.section({
-    name: 'ui:file-review-references',
+    name: 'dsh-diff-review-likecodex:file-references',
     order: 190,
     text: FILE_REFERENCE_PROMPT,
   })

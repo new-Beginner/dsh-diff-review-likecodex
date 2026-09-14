@@ -28,7 +28,7 @@ export interface PtcFileReviewMarker {
 interface MarkerBlock {
   readonly type: 'text'
   readonly text: ''
-  readonly dshFileReview: PtcFileReviewMarker
+  readonly dshDiffReviewLikecodex: PtcFileReviewMarker
 }
 
 function record(value: unknown): Record<string, unknown> | null {
@@ -276,18 +276,51 @@ export function parsePtcFileReviewMarker(
   }
 }
 
-/** Read the last valid invisible marker from one PTC settlement content array. */
-export function markerFromContent(
+export type PtcFileReviewMarkerOrigin = 'current' | 'legacy'
+
+function selectMarker(
   content: readonly unknown[],
   expected: { readonly rootCallId: string; readonly subCallId: string },
-): PtcFileReviewMarker | null {
+  allowLegacy: boolean,
+): { readonly marker: PtcFileReviewMarker; readonly origin: PtcFileReviewMarkerOrigin } | null {
+  let hasCurrentMarker = false
+  for (let index = content.length - 1; index >= 0; index--) {
+    const block = record(content[index])
+    if (block === null) continue
+    if (Object.prototype.hasOwnProperty.call(block, 'dshDiffReviewLikecodex')) {
+      hasCurrentMarker = true
+    }
+    if (block.type !== 'text' || block.text !== '') continue
+    const marker = parsePtcFileReviewMarker(block.dshDiffReviewLikecodex, expected)
+    if (marker !== null) return { marker, origin: 'current' }
+  }
+  // An invalid current marker must not silently downgrade to upstream data.
+  if (!allowLegacy || hasCurrentMarker) return null
   for (let index = content.length - 1; index >= 0; index--) {
     const block = record(content[index])
     if (block?.type !== 'text' || block.text !== '') continue
     const marker = parsePtcFileReviewMarker(block.dshFileReview, expected)
-    if (marker !== null) return marker
+    if (marker !== null) return { marker, origin: 'legacy' }
   }
   return null
+}
+
+/** Prefer this fork's marker; upstream markers are a read-only compatibility fallback. */
+export function markerFromContent(
+  content: readonly unknown[],
+  expected: { readonly rootCallId: string; readonly subCallId: string },
+  allowLegacy = true,
+): PtcFileReviewMarker | null {
+  return selectMarker(content, expected, allowLegacy)?.marker ?? null
+}
+
+/** Identify the selected marker with exactly the same priority and validation rules. */
+export function markerOriginFromContent(
+  content: readonly unknown[],
+  expected: { readonly rootCallId: string; readonly subCallId: string },
+  allowLegacy = true,
+): PtcFileReviewMarkerOrigin | null {
+  return selectMarker(content, expected, allowLegacy)?.origin ?? null
 }
 
 function bytes(value: unknown): number {
@@ -315,5 +348,5 @@ export function boundedPtcFileReviewMarker(
 
 /** Build the invisible standard text block used as the durable carrier. */
 export function markerBlock(marker: PtcFileReviewMarker): MarkerBlock {
-  return { type: 'text', text: '', dshFileReview: marker }
+  return { type: 'text', text: '', dshDiffReviewLikecodex: marker }
 }

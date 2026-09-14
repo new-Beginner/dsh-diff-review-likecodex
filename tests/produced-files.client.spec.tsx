@@ -14,11 +14,12 @@ import type {
   ConversationTurnDataMap,
   TurnLocation,
 } from '@deepseek-ai/dsh-client-ui-conversation/client'
-import type { ChatFileMentions, TurnTailOwnerProps } from '@deepseek-ai/dsh-client-ui-chat/client'
+import type { TurnTailOwnerProps } from '@deepseek-ai/dsh-client-ui-chat/client'
 import { useMemo, useState } from 'react'
 import type { ObservableSnapshot } from '@deepseek-ai/dsh-client-store'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { ProducedFiles, type ProducedFilesProps } from '../src/client/ProducedFiles.tsx'
+import { LiveReviewDock } from '../src/client/LiveReviewDock.tsx'
 import {
   FileReviewSettingsCard,
   type FileReviewSettingsCardProps,
@@ -155,7 +156,7 @@ class TestTurnDataStore implements ConversationLocationDataStore<ConversationTur
 
 const turnLocation = (turn: number, deliverables?: DeliverablesTurnData): TurnLocation => {
   const data = new TestTurnDataStore()
-  if (deliverables !== undefined) data.set('deliverables', deliverables)
+  if (deliverables !== undefined) data.set('diff-review-likecodex.deliverables', deliverables)
   return { turn, start: undefined, end: undefined, status: 'closed', steps: [], data }
 }
 
@@ -313,7 +314,7 @@ function fold(
   const start = matched(first, 'start')
   const base = {
     key: 'deliverables:1',
-    kind: 'deliverables',
+    kind: 'diff-review-likecodex.deliverables',
     id: '1',
     matches: [start],
     start,
@@ -614,7 +615,7 @@ describe('produced-file Turn data', () => {
     const startMatch = matched(at(1, 'turn/start', { turn: 1 }), 'start')
     const emptyContext: Parameters<typeof deliverablesDefinition.start>[0] = {
       key: 'deliverables:1',
-      kind: 'deliverables',
+      kind: 'diff-review-likecodex.deliverables',
       id: '1',
       matches: [startMatch],
       start: startMatch,
@@ -725,20 +726,16 @@ describe('ProducedFiles review card', () => {
     )
   })
 
-  // 验证卡片同时展示总计和逐文件统计，默认仅显示六个文件，展开后显示剩余项。
-  it('renders aggregate and per-file totals and expands the six-file preview', () => {
+  // 结束卡片直接显示全部文件，不需要展开，也不引入可折叠容器。
+  it('renders aggregate and per-file totals with every file expanded', () => {
     const paths = ['deep/a.html', 'b.css', 'c.ts', 'd.ts', 'e.ts', 'f.ts', 'g.ts']
     const view = render(<ReviewFixture matched={reviews(paths)} openFile={() => {}} t={t} />)
     const card = view.getByRole('region', { name: 'Edited files' })
     expect(within(card).getByText('Edited 7 files')).toBeTruthy()
-    const expand = within(card).getByRole('button', { name: '1 more file' })
     expect(within(card).getAllByRole('button')).toHaveLength(9)
-    expect(within(card).queryByRole('button', { name: 'Review g.ts' })).toBeNull()
-
-    fireEvent.click(expand)
-
     expect(within(card).getByRole('button', { name: 'Review g.ts' })).toBeTruthy()
     expect(within(card).queryByRole('button', { name: '1 more file' })).toBeNull()
+    expect(card.querySelector('details, [aria-expanded]')).toBeNull()
     const first = within(card).getByRole('button', { name: 'Review deep/a.html' })
     expect(first.textContent).toContain('a.html')
     expect(first.getAttribute('title')).toBe('deep/a.html')
@@ -1411,6 +1408,12 @@ describe('sent review comment projection', () => {
       ],
       visibleText: 'Please apply it.',
     })
+    expect(serialized).toContain('<diff_review_likecodex_comments>')
+    expect(serialized).not.toContain('<file_review_comments>')
+    const legacy = serialized.replaceAll('diff_review_likecodex_comments', 'file_review_comments')
+    expect(projectReviewMessageText(`${legacy}\n\nPlease apply it.`)).toEqual(
+      projectReviewMessageText(`${serialized}\n\nPlease apply it.`),
+    )
     expect(projectReviewMessageText(`Prefix\n${serialized}`)).toBeNull()
   })
 
@@ -1460,7 +1463,7 @@ describe('sent review comment projection', () => {
       images: [{ attachment }],
       align: 'end',
     })
-    expect(view.queryByText(/file_review_comments/)).toBeNull()
+    expect(view.queryByText(/(?:file_review|diff_review_likecodex)_comments/)).toBeNull()
 
     const pill = view.getByRole('button', { name: '1 comment' })
     expect(view.queryByRole('tooltip')).toBeNull()
@@ -1535,11 +1538,13 @@ describe('FileReview settings card', () => {
     const view = render(<FileReviewSettingsCard {...props} />)
 
     const starLink = view.getByRole('link', { name: en['settings.star.aria'] })
-    expect(starLink.getAttribute('href')).toBe('https://github.com/new-Beginner/dsh-diff-review-likecodex')
+    expect(starLink.getAttribute('href')).toBe(
+      'https://github.com/new-Beginner/dsh-diff-review-likecodex',
+    )
     expect(starLink.getAttribute('target')).toBe('_blank')
     expect(starLink.getAttribute('rel')).toBe('noopener noreferrer')
     expect(view.queryByRole('switch')).toBeNull()
-    fireEvent.click(view.getByRole('button', { name: 'Expand: File review' }))
+    fireEvent.click(view.getByRole('button', { name: 'Expand: Diff Review Likecodex' }))
     const toggle = view.getByRole('switch', { name: 'Automatically wrap long lines' })
     expect(toggle.getAttribute('aria-checked')).toBe('false')
     fireEvent.click(toggle)
@@ -1576,7 +1581,7 @@ describe('plugin registration', () => {
       }
       component: unknown
     }> = []
-    let service: ChatFileMentions | undefined
+    const provide = vi.fn()
     const registerLocale = vi.fn(() => () => {})
     const disposeRemote = vi.fn(async () => {})
     const mountRemote = vi.fn(async () => disposeRemote)
@@ -1587,7 +1592,7 @@ describe('plugin registration', () => {
     }
     class FileReviewRemoteFixture extends Service {
       constructor(scoped: Context) {
-        super(scoped, 'remote.fileReview')
+        super(scoped, 'remote.diffReviewLikecodex')
       }
       async status(): Promise<{ ok: true; value: { files: readonly [] } }> {
         return { ok: true, value: { files: [] } }
@@ -1651,6 +1656,8 @@ describe('plugin registration', () => {
     }
     const bindSettings = vi.fn(() => settingsScope)
     const ctx = {
+      inject: vi.fn(), // Better Sidebar is absent; the optional fiber waits.
+      get: vi.fn(() => undefined),
       remote: { $mount: mountRemote },
       settingsScope: { bind: bindSettings },
       sessions: {
@@ -1714,9 +1721,7 @@ describe('plugin registration', () => {
           return () => {}
         },
       },
-      provide: (name: string, value: ChatFileMentions) => {
-        if (name === 'chatFileMentions') service = value
-      },
+      provide,
     }
 
     const dispose = await apply(ctx as never)
@@ -1733,19 +1738,19 @@ describe('plugin registration', () => {
       'sidebarRight',
       'sidebarRightTabs',
     ])
-    expect(bindSettings).toHaveBeenCalledWith({ namespace: 'file-review' })
+    expect(bindSettings).toHaveBeenCalledWith({ namespace: 'diff-review-likecodex' })
     publishWordWrap(true)
     expect(registerSource).toHaveBeenCalledOnce()
     expect(mountRemote).toHaveBeenCalledOnce()
     expect(definition).toBe(deliverablesDefinition)
-    expect(registerLocale).toHaveBeenCalledWith('file-review', { zh, en })
+    expect(registerLocale).toHaveBeenCalledWith('diff-review-likecodex', { zh, en })
     const settingsRegistration = registrations.find(
       (registration) => registration.options.name === 'settings.plugin.item',
     )
     expect(settingsRegistration).toEqual({
       options: expect.objectContaining({
         name: 'settings.plugin.item',
-        key: 'file-review',
+        key: 'diff-review-likecodex',
         priority: -100,
         locale: NS,
         inject: expect.any(Function),
@@ -1755,14 +1760,39 @@ describe('plugin registration', () => {
     expect(registrations).toContainEqual({
       options: expect.objectContaining({
         name: 'conversation.input.dock',
-        id: 'file-review-comments',
+        id: 'dsh-diff-review-likecodex:comments',
         locale: NS,
         inject: expect.any(Function),
       }),
       component: ReviewCommentsDock,
     })
+    const liveRegistration = registrations.find(
+      (registration) => registration.options.id === 'dsh-diff-review-likecodex:live',
+    )
+    expect(liveRegistration).toEqual({
+      options: expect.objectContaining({
+        name: 'conversation.input.dock',
+        id: 'dsh-diff-review-likecodex:live',
+        order: -20,
+        locale: NS,
+        inject: expect.any(Function),
+      }),
+      component: LiveReviewDock,
+    })
+    const liveTarget = { turn: 2, closingSeq: Number.MAX_SAFE_INTEGER, focusPaths: [] }
+    for (const sessionId of ['session-1', 'session-2']) {
+      const liveActions = liveRegistration?.options.inject?.(sessionId) as {
+        openReview(target: ReviewTarget): void
+      }
+      liveActions.openReview(liveTarget)
+      expect(ctx.sidebarRight.openTabIn).toHaveBeenLastCalledWith(
+        sessionId,
+        'dsh-diff-review-likecodex:review',
+        { params: liveTarget },
+      )
+    }
     const dockRegistration = registrations.find(
-      (registration) => registration.options.name === 'conversation.input.dock',
+      (registration) => registration.options.id === 'dsh-diff-review-likecodex:comments',
     )
     expect(dockRegistration?.options.inject?.('session-1')).toEqual({
       projectRoot: '/workspace/project',
@@ -1773,7 +1803,7 @@ describe('plugin registration', () => {
           options: expect.objectContaining({
             name: 'conversation.chat.node',
             key: 'user',
-            priority: -10,
+            priority: -20,
             locale: 'chat',
           }),
           component: ReviewUserMessage,
@@ -1782,7 +1812,7 @@ describe('plugin registration', () => {
           options: expect.objectContaining({
             name: 'conversation.chat.node',
             key: 'steering',
-            priority: -10,
+            priority: -20,
             locale: 'chat',
           }),
           component: ReviewUserMessage,
@@ -1803,9 +1833,13 @@ describe('plugin registration', () => {
     expect(reviewActions.openReview).toBeTypeOf('function')
     const target = { turn: 1, closingSeq: 2, focusPaths: ['a.txt'] }
     reviewActions.openReview(target)
-    expect(ctx.sidebarRight.openTabIn).toHaveBeenCalledWith('session-1', 'dsh-file-review:review', {
-      params: target,
-    })
+    expect(ctx.sidebarRight.openTabIn).toHaveBeenCalledWith(
+      'session-1',
+      'dsh-diff-review-likecodex:review',
+      {
+        params: target,
+      },
+    )
     await expect(reviewActions.inspectChanges({ action: 'undo', files: [] })).resolves.toEqual({
       files: [],
     })
@@ -1820,14 +1854,8 @@ describe('plugin registration', () => {
     await settingsActions.setWordWrap(false)
     expect(settingsScope.set).toHaveBeenCalledExactlyOnceWith('wordWrap', false)
 
-    const opened: string[] = []
-    const owner = tailOwner(produced([2, 'site/report.html']), 3, (path) => {
-      opened.push(path)
-    })
-    const mentions = service?.forClosing(owner)
-    mentions?.resolve('report.html')?.open()
-    expect(opened).toEqual(['site/report.html'])
-    expect(service?.forClosing(tailOwner(undefined, 2))).toBeUndefined()
+    // Shared DSH/upstream services must remain untouched regardless of load order.
+    expect(provide).not.toHaveBeenCalled()
     await dispose()
     expect(disposeRemote).toHaveBeenCalledOnce()
     expect(disposeSource).toHaveBeenCalledOnce()

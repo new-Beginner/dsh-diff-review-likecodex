@@ -1,7 +1,7 @@
 /** Shared Host/browser contract for file-review display preferences. */
 
 /** Settings namespace owned by this plugin. */
-export const FILE_REVIEW_SETTINGS_NAMESPACE = 'file-review'
+export const FILE_REVIEW_SETTINGS_NAMESPACE = 'diff-review-likecodex'
 
 /** Preserve the existing horizontally scrollable diff presentation by default. */
 export const DEFAULT_WORD_WRAP = false

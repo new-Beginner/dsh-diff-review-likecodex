@@ -1,6 +1,6 @@
 {
-  "name": "dsh-file-review",
-  "version": "0.8.1",
+  "name": "dsh-diff-review-likecodex",
+  "version": "1.0.0",
   "description": "Review DeepSeek Harness file changes in native sidebar tabs",
   "keywords": [
     "code-review",
@@ -8,15 +8,7 @@
     "diff",
     "dsh-plugin"
   ],
-  "homepage": "https://github.com/new-Beginner/dsh-diff-review-likecodex#readme",
-  "bugs": {
-    "url": "https://github.com/new-Beginner/dsh-diff-review-likecodex/issues"
-  },
   "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/new-Beginner/dsh-diff-review-likecodex.git"
-  },
   "files": [
     "lib",
     "cordis.patch.yml",
@@ -115,6 +107,7 @@
     "@types/node": "^26.0.0",
     "@types/react": "~18.3.1",
     "@types/react-dom": "~18.3.0",
+    "dsh-better-sidebar": "0.19.1",
     "husky": "^9.1.7",
     "jsdom": "^27.0.0",
     "lightningcss": "^1.32.0",
@@ -155,7 +148,13 @@
     "@deepseek-ai/dsh-tools": "^0.1.5-rc.1",
     "@deepseek-ai/dsh-typert-protocol": "^0.1.5-rc.1",
     "@deepseek-ai/dsh-typert-registry": "^0.1.5-rc.1",
+    "dsh-better-sidebar": ">=0.19.1 <0.20",
     "react": "^18.2.0"
+  },
+  "peerDependenciesMeta": {
+    "dsh-better-sidebar": {
+      "optional": true
+    }
   },
   "dsh": {
     "adapter": {

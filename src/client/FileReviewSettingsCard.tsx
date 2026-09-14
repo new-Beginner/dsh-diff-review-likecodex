@@ -20,7 +20,7 @@ export type FileReviewSettingsCardProps = PropsRuntime<'settings.plugin.item'> &
   PropsLocale<typeof NS> &
   InjectFace<FileReviewSettingsCardInjected>
 
-/** Minimal settings card owned by the file-review plugin. */
+/** Fork settings card; the GitHub link credits upstream, not this fork's repository. */
 export function FileReviewSettingsCard({
   setWordWrap,
   setDiffLayout,

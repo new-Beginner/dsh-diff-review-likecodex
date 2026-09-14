@@ -3,7 +3,7 @@
 import { z } from 'zod'
 import type { InvocationDescriptor } from '@deepseek-ai/dsh-typert-protocol'
 
-export const PACKAGE_NAME = 'dsh-file-review'
+export const PACKAGE_NAME = 'dsh-diff-review-likecodex'
 
 const diffSchema = z.object({
   path: z.string(),
@@ -61,9 +61,9 @@ const resultCodec = {
 
 function descriptor(method: 'status' | 'apply'): InvocationDescriptor {
   return {
-    id: `${PACKAGE_NAME}#fileReview/${method}`,
-    service: 'fileReview',
-    namespace: 'fileReview',
+    id: `${PACKAGE_NAME}#diffReviewLikecodex/${method}`,
+    service: 'diffReviewLikecodex',
+    namespace: 'diffReviewLikecodex',
     method,
     invocation: { kind: 'direct' },
     scope: { context: 'agent', wire: 'agentId' },

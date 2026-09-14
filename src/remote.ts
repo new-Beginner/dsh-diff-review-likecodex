@@ -7,7 +7,7 @@ import { FILE_REVIEW_INVOCATIONS, PACKAGE_NAME } from './typert-descriptors.ts'
 
 declare module '@deepseek-ai/dsh-typert-protocol' {
   interface TypertRemoteNamespaceMap {
-    fileReview: {
+    diffReviewLikecodex: {
       status: (
         agentId: SessionId,
         request: FileReviewRequest,
@@ -19,20 +19,20 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
     }
   }
   interface TypertRemoteMap {
-    'fileReview/status': (
+    'diffReviewLikecodex/status': (
       agentId: SessionId,
       request: FileReviewRequest,
     ) => Promise<RemoteResult<FileReviewResult>>
-    'fileReview/apply': (
+    'diffReviewLikecodex/apply': (
       agentId: SessionId,
       request: FileReviewRequest,
     ) => Promise<RemoteResult<FileReviewResult>>
   }
   interface TypertRemoteScopeMap {
-    'agent:fileReview/status': (
+    'agent:diffReviewLikecodex/status': (
       request: FileReviewRequest,
     ) => Promise<RemoteResult<FileReviewResult>>
-    'agent:fileReview/apply': (
+    'agent:diffReviewLikecodex/apply': (
       request: FileReviewRequest,
     ) => Promise<RemoteResult<FileReviewResult>>
   }

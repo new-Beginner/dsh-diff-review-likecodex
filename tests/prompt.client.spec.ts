@@ -23,7 +23,7 @@ describe('dsh-file-review node plugin', () => {
     await mounted.await()
 
     const section = (await ctx.systemPrompt.assemble()).sections.find(
-      (entry) => entry.name === 'ui:file-review-references',
+      (entry) => entry.name === 'dsh-diff-review-likecodex:file-references',
     )
     expect(section?.text).toMatchInlineSnapshot(
       '"When you successfully create or modify files, mention the primary outputs in your final response. To make those and any other changed-file references clickable in Web, format them as Markdown inline code using the exact file-tool path, or a basename when unique among the files changed in that turn."',
@@ -32,7 +32,7 @@ describe('dsh-file-review node plugin', () => {
     await mounted.dispose()
     expect(
       (await ctx.systemPrompt.assemble()).sections.some(
-        (entry) => entry.name === 'ui:file-review-references',
+        (entry) => entry.name === 'dsh-diff-review-likecodex:file-references',
       ),
     ).toBe(false)
   })

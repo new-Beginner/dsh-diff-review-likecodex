@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import * as React from 'react'
 import * as jsxRuntime from 'react/jsx-runtime'
@@ -21,10 +22,10 @@ describe('published browser artifact', () => {
         handoff = value
       },
     }
-    const artifact = pathToFileURL(new URL('../lib/client.js', import.meta.url).pathname)
+    const artifact = pathToFileURL(resolve('lib/client.js'))
     await import(/* @vite-ignore */ `${artifact.href}?test=${String(Date.now())}`)
 
-    expect(handoff?.id).toBe('dsh-file-review')
+    expect(handoff?.id).toBe('dsh-diff-review-likecodex')
     const shared: Record<string, unknown> = {
       react: React,
       'react/jsx-runtime': jsxRuntime,
@@ -47,6 +48,8 @@ describe('published browser artifact', () => {
       'sidebarRight',
       'sidebarRightTabs',
     ])
-    expect(document.querySelectorAll('style[data-plugin="dsh-file-review"]')).toHaveLength(3)
+    expect(
+      document.querySelectorAll('style[data-plugin="dsh-diff-review-likecodex"]'),
+    ).toHaveLength(3)
   })
 })

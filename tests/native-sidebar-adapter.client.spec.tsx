@@ -50,7 +50,7 @@ function fixture() {
     slots: {
       inject: (_name: string, setup: () => () => void) => setup(),
       register: (definition: { name: string; key: string }, component: ComponentType<any>) => {
-        expect(definition.key).toBe('dsh-file-review:review')
+        expect(definition.key).toBe('dsh-diff-review-likecodex:review')
         slots.set(definition.name, component)
         return () => {
           slots.delete(definition.name)
@@ -91,9 +91,9 @@ describe('native sidebar review registration', () => {
     f.open('session-b' as never, first)
     expect(f.definitions).toHaveLength(1)
     expect(f.openTabIn.mock.calls).toEqual([
-      ['session-a', 'dsh-file-review:review', { params: first }],
-      ['session-a', 'dsh-file-review:review', { params: second }],
-      ['session-b', 'dsh-file-review:review', { params: first }],
+      ['session-a', 'dsh-diff-review-likecodex:review', { params: first }],
+      ['session-a', 'dsh-diff-review-likecodex:review', { params: second }],
+      ['session-b', 'dsh-diff-review-likecodex:review', { params: first }],
     ])
     f.dispose()
     expect(f.definitions).toHaveLength(0)

@@ -376,10 +376,10 @@ function sessionCwd(agent: Agent): string {
   return cwd
 }
 
-/** Host service published as the `fileReview` Remote namespace. */
+/** Host service published as the `diffReviewLikecodex` Remote namespace. */
 export class FileReviewService extends TypertRemoteService {
   constructor(ctx: Context) {
-    super(ctx, 'fileReview')
+    super(ctx, 'diffReviewLikecodex')
   }
 
   /** Inspect current disk state without changing files. */

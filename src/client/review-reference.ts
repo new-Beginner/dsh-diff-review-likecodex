@@ -12,7 +12,7 @@ import {
   subscribeReviewComments,
 } from './review-comments.ts'
 
-export const REVIEW_COMMENT_SOURCE = 'file-review-comments'
+export const REVIEW_COMMENT_SOURCE = 'dsh-diff-review-likecodex:comments'
 
 interface ReviewOccurrence {
   readonly source: string
@@ -130,7 +130,8 @@ export function bindReviewReference(
           event.type === 'user/message' &&
           event.data.source.kind === 'user' &&
           event.data.content.some(
-            (part) => part.type === 'text' && part.text.includes('<file_review_comments>'),
+            (part) =>
+              part.type === 'text' && part.text.includes('<diff_review_likecodex_comments>'),
           ),
       )
     ) {

@@ -158,29 +158,134 @@
   white-space: nowrap;
 }
 
-.moreFiles {
-  display: block;
-  width: 100%;
-  min-height: 34px;
-  margin: 0;
-  padding: 0 12px;
-  border: 0;
-  background: transparent;
-  color: var(--dsw-alias-label-tertiary);
+/* The host's resident composer stack anchors this above the input, outside
+   transcript scrolling. Avoid viewport-fixed positioning across split sessions. */
+.liveDock {
+  min-width: 0;
+  width: fit-content;
+  max-width: calc(100% - 24px);
+  align-self: center;
+  margin: 0 auto 8px;
+}
+
+.liveReviewButton {
+  display: inline-flex;
+  width: auto;
+  max-width: 100%;
+  box-sizing: border-box;
+  min-height: 36px;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 14px;
+  background: var(--dsw-alias-bg-container, Canvas);
+  color: var(--dsw-alias-label-primary);
+  box-shadow: 0 3px 12px rgb(0 0 0 / 6%);
   cursor: pointer;
   font: inherit;
-  line-height: 34px;
+  font-size: 13px;
   text-align: left;
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease;
 }
 
-.moreFiles:hover {
+.liveReviewButton > svg,
+.fileRow > svg {
+  flex: 0 0 auto;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.liveTitle {
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.liveReviewAction {
+  margin-left: 4px;
+  padding-left: 10px;
+  border-left: 1px solid var(--dsw-alias-border-l2);
+  color: var(--dsw-alias-label-secondary);
+  white-space: nowrap;
+}
+
+.liveReviewButton:hover {
+  border-color: var(--dsw-alias-border-l3);
   background: var(--dsw-alias-interactive-bg-hover);
-  color: var(--dsw-alias-label-primary);
 }
 
-.moreFiles:focus-visible {
-  outline: none;
-  box-shadow: inset 0 0 0 2px var(--dsw-alias-border-l3);
+.liveReviewButton:focus-visible {
+  outline: 2px solid var(--dsw-alias-border-l3);
+  outline-offset: 2px;
+}
+
+.fileRow:last-child {
+  border-bottom: 0;
+}
+
+@media (max-width: 480px) {
+  .cardHeader {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 10px 12px;
+  }
+
+  .cardTitleBlock {
+    flex-wrap: wrap;
+    gap: 4px 8px;
+  }
+
+  .liveReviewButton {
+    gap: 8px;
+    padding-inline: 10px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .liveReviewButton {
+    transition: none;
+  }
+}
+
+.reviewNavigation {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--dsw-alias-border-l2);
+  font-size: 13px;
+}
+
+.reviewNavigation label {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.reviewNavigation select {
+  min-width: 0;
+  max-width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 8px;
+  background: var(--dsw-alias-bg-container, Canvas);
+  color: var(--dsw-alias-label-primary);
+  font: inherit;
+}
+
+.reviewReadOnly {
+  flex: 0 0 auto;
+  padding: 8px 16px;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 12px;
 }
 
 .reviewHeader {
@@ -463,6 +568,7 @@
 .sidebarTab {
   container-type: inline-size;
   display: flex;
+  flex-direction: column;
   width: 100%;
   min-width: 0;
   min-height: 0;

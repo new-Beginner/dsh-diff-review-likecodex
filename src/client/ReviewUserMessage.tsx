@@ -9,8 +9,11 @@ import type { NS } from './locales.ts'
 import { ReviewCommentPill } from './ReviewCommentPill.tsx'
 import css from './ProducedFiles.module.css'
 
-const REVIEW_START = '<file_review_comments>'
-const REVIEW_END = '</file_review_comments>'
+const REVIEW_ENVELOPES = [
+  ['<diff_review_likecodex_comments>', '</diff_review_likecodex_comments>'],
+  // Read-only projection of historical upstream messages; never emit this envelope.
+  ['<file_review_comments>', '</file_review_comments>'],
+] as const
 
 interface ProjectedReviewComment {
   readonly path: string
@@ -71,17 +74,19 @@ function projectedComments(serialized: string): readonly ProjectedReviewComment[
 
 /** Recognize only the leading envelope emitted by this plugin and retain any user text after it. */
 export function projectReviewMessageText(text: string): ReviewMessageProjection | null {
-  if (!text.startsWith(REVIEW_START)) return null
-  const end = text.indexOf(REVIEW_END, REVIEW_START.length)
+  const envelope = REVIEW_ENVELOPES.find(([start]) => text.startsWith(start))
+  if (envelope === undefined) return null
+  const [start, finish] = envelope
+  const end = text.indexOf(finish, start.length)
   if (end < 0) return null
-  const serialized = text.slice(0, end + REVIEW_END.length)
+  const serialized = text.slice(0, end + finish.length)
   const comments = projectedComments(serialized)
   const commentCount = comments.length
   if (commentCount === 0) return null
   return {
     commentCount,
     comments,
-    visibleText: text.slice(end + REVIEW_END.length).replace(/^\n{1,2}/, ''),
+    visibleText: text.slice(end + finish.length).replace(/^\n{1,2}/, ''),
   }
 }
 

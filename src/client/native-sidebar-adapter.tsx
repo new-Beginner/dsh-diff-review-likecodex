@@ -13,11 +13,11 @@ import { fileAddressFor } from '@deepseek-ai/dsh-util-workspace-path'
 import { FileReviewTab, type FileReviewTabRuntime, type ReviewTarget } from './FileReviewTab.tsx'
 import { NS } from './locales.ts'
 
-const REVIEW_TAB_ID = 'dsh-file-review:review'
+const REVIEW_TAB_ID = 'dsh-diff-review-likecodex:review'
 
 declare module '@deepseek-ai/dsh-client-ui-sidebar-right/client' {
   interface SidebarRightTabParamsMap {
-    'dsh-file-review:review': ReviewTarget
+    'dsh-diff-review-likecodex:review': ReviewTarget | null
   }
 }
 
@@ -38,7 +38,7 @@ function ReviewTabTitle({ t }: PropsLocale<typeof NS>) {
 export function installNativeSidebarIntegration(
   ctx: ClientContext,
   { sessions, uiConversation, wordWrap, settings, t, runtimeFor }: NativeSidebarIntegrationOptions,
-): (sessionId: SessionId, target: ReviewTarget) => void {
+): (sessionId: SessionId, target?: ReviewTarget) => void {
   ctx.effect(
     () =>
       ctx.sidebarRightTabs.register({
@@ -46,7 +46,7 @@ export function installNativeSidebarIntegration(
         kind: REVIEW_TAB_ID,
         title: () => t('review.title'),
       }),
-    'dsh-file-review: native review tab',
+    'dsh-diff-review-likecodex: native review tab',
   )
   ctx.effect(
     () =>
@@ -79,7 +79,7 @@ export function installNativeSidebarIntegration(
           },
         ),
       ),
-    'dsh-file-review: native review body',
+    'dsh-diff-review-likecodex: native review body',
   )
   ctx.effect(
     () =>
@@ -89,9 +89,9 @@ export function installNativeSidebarIntegration(
           ReviewTabTitle,
         ),
       ),
-    'dsh-file-review: native review title',
+    'dsh-diff-review-likecodex: native review title',
   )
   return (sessionId, target) => {
-    ctx.sidebarRight.openTabIn(sessionId, REVIEW_TAB_ID, { params: target })
+    ctx.sidebarRight.openTabIn(sessionId, REVIEW_TAB_ID, { params: target ?? null })
   }
 }
